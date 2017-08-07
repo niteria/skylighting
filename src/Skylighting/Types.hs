@@ -7,37 +7,11 @@
 
 -- | Basic types for Skylighting.
 module Skylighting.Types (
-              -- * Syntax descriptions
-                ContextName
-              , KeywordAttr(..)
-              , WordSet
-              , makeWordSet
-              , inWordSet
-              , Matcher(..)
-              , Rule(..)
-              , Context(..)
-              , ContextSwitch(..)
-              , Syntax(..)
+               Syntax(..)
               , SyntaxMap
-              -- * Tokens
-              , Token
-              , TokenType(..)
-              , SourceLine
-              -- * Styles
-              , TokenStyle(..)
-              , defStyle
-              , Color(..)
-              , ToColor(..)
-              , FromColor(..)
-              , Style(..)
-              -- * Format options
-              , FormatOptions(..)
-              , defaultFormatOpts
               ) where
 
-import Data.Aeson
 import Data.Bits
-import Data.CaseInsensitive (FoldCase(..))
 import Data.Binary (Binary)
 import Data.Data (Data)
 import qualified Data.Map as Map
@@ -47,9 +21,6 @@ import qualified Data.Text as Text
 import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
 import Data.Word
-import Safe (readMay)
-import Skylighting.Regex
-import Text.Printf
 
 -- | Full name of a context: the first member of the pair is the full
 -- syntax name, the second the context name within that syntax.
@@ -71,16 +42,6 @@ data WordSet a = CaseSensitiveWords (Set.Set a)
 
 instance Binary a => Binary (WordSet a)
 
--- | A set of words to match (either case-sensitive or case-insensitive).
-makeWordSet :: (FoldCase a, Ord a) => Bool -> [a] -> WordSet a
-makeWordSet True ws  = CaseSensitiveWords (Set.fromList ws)
-makeWordSet False ws = CaseInsensitiveWords (Set.fromList $ map foldCase ws)
-
--- | Test for membership in a 'WordSet'.
-inWordSet :: (FoldCase a, Ord a) => a -> WordSet a -> Bool
-inWordSet w (CaseInsensitiveWords ws) = foldCase w `Set.member` ws
-inWordSet w (CaseSensitiveWords ws) = w `Set.member` ws
-
 -- | Matchers correspond to the element types in a context.
 data Matcher =
     DetectChar Char
@@ -89,7 +50,7 @@ data Matcher =
   | RangeDetect Char Char
   | StringDetect Text
   | WordDetect Text
-  | RegExpr RE
+  | RegExpr () -- this probably breaks runtime, but I care about compile time
   | Keyword KeywordAttr (WordSet Text)
   | Int
   | Float
@@ -205,14 +166,6 @@ data TokenType = KeywordTok
 
 instance Binary TokenType
 
--- | JSON @"Keyword"@ corresponds to 'KeywordTok', and so on.
-instance FromJSON TokenType where
-  parseJSON (String t) =
-    case readMay (Text.unpack t ++ "Tok") of
-         Just tt -> return tt
-         Nothing -> fail "Not a token type"
-  parseJSON _ = mempty
-
 -- | A line of source: a list of labeled tokens.
 type SourceLine = [Token]
 
@@ -226,22 +179,6 @@ data TokenStyle = TokenStyle {
   } deriving (Show, Read, Ord, Eq, Data, Typeable, Generic)
 
 instance Binary TokenStyle
-
--- | The keywords used in KDE syntax
--- themes are used, e.g. @text-color@ for default token color.
-instance FromJSON TokenStyle where
-  parseJSON (Object v) = do
-    tcolor <- v .:? "text-color"
-    tbold <- v .:? "bold" .!= False
-    titalic <- v .:? "italic" .!= False
-    tunderline <- v .:? "underline" .!= False
-    return TokenStyle{
-               tokenColor = tcolor
-             , tokenBackground = Nothing
-             , tokenBold = tbold
-             , tokenItalic = titalic
-             , tokenUnderline = tunderline }
-  parseJSON _ = mempty
 
 -- | Default style.
 defStyle :: TokenStyle
@@ -286,24 +223,6 @@ instance ToColor (Double, Double, Double) where
           Just $ RGB (floor $ r * 255) (floor $ g * 255) (floor $ b * 255)
   toColor _ = Nothing
 
--- | JSON @"#1aff2b" corresponds to the color @RGB 0x1a 0xff 0x2b@.
-instance FromJSON Color where
-  parseJSON (String t) = maybe mempty return $ toColor (Text.unpack t)
-  parseJSON _          = mempty
-
--- | Different representations of a 'Color'.
-class FromColor a where
-  fromColor :: Color -> a
-
-instance FromColor String where
-  fromColor (RGB r g b) = printf "#%02x%02x%02x" r g b
-
-instance FromColor (Double, Double, Double) where
-  fromColor (RGB r g b) = (fromIntegral r / 255, fromIntegral g / 255, fromIntegral b / 255)
-
-instance FromColor (Word8, Word8, Word8) where
-  fromColor (RGB r g b) = (r, g, b)
-
 -- | A rendering style. This determines how each kind of token
 -- is to be rendered, and sets a default color and background
 -- color for normal tokens.  Line numbers can have a different
@@ -317,25 +236,6 @@ data Style = Style {
   } deriving (Read, Show, Eq, Ord, Data, Typeable, Generic)
 
 instance Binary Style
-
--- | The FromJSON instance for 'Style' is designed so that
--- a KDE syntax theme (JSON) can be decoded directly as a
--- 'Style'.
-instance FromJSON Style where
-  parseJSON (Object v) = do
-    (tokstyles :: Map.Map Text TokenStyle) <- v .: "text-styles"
-    (editorColors :: Map.Map Text Color) <- v .: "editor-colors"
-    return Style{ defaultColor = case Map.lookup "Normal" tokstyles of
-                                      Nothing -> Nothing
-                                      Just ts -> tokenColor ts
-                , backgroundColor = Map.lookup "background-color" editorColors
-                , lineNumberColor = Map.lookup "line-numbers" editorColors
-                , lineNumberBackgroundColor = Map.lookup "background-color"
-                                                editorColors
-                , tokenStyles = Map.toList $
-                     Map.mapKeys (\s -> maybe OtherTok id $
-                                     readMay (Text.unpack s ++ "Tok")) tokstyles }
-  parseJSON _ = mempty
 
 -- | Options for formatting source code.
 data FormatOptions = FormatOptions{

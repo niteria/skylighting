@@ -92,14 +92,8 @@ source-repository head
   location:          https://github.com/jgm/skylighting.git
 
 library
-  exposed-modules:     Skylighting
+  exposed-modules:
                        Skylighting.Types
-                       Skylighting.Regex
-                       Skylighting.Parser
-                       Skylighting.Styles
-                       Skylighting.Tokenizer
-                       Skylighting.Format.HTML
-                       Skylighting.Format.LaTeX
                        Skylighting.Syntax
   other-modules:
                        Skylighting.Syntax.Abc
@@ -227,24 +221,12 @@ library
                        Skylighting.Syntax.Zsh
   other-extensions:    CPP, Arrows
   build-depends:       base >= 4.7 && < 5.0,
-                       mtl,
                        text,
+                       containers,
                        binary,
                        bytestring,
                        directory,
-                       filepath,
-                       aeson,
-                       case-insensitive,
-                       attoparsec,
-                       utf8-string,
-                       hxt,
-                       safe,
-                       blaze-html >= 0.5,
-                       containers
-  if flag(system-pcre)
-    build-depends:     regex-pcre
-  else
-    build-depends:     regex-pcre-builtin
+                       filepath
   hs-source-dirs:      src
   if impl(ghc < 7.10)
      hs-source-dirs:   prelude
@@ -266,106 +248,3 @@ Flag executable
 Flag system-pcre
   Description:   Use regex-pcre instead of regex-pcre-builtin
   Default:       False
-
-executable skylighting-extract
-  build-depends:       base >= 4.7 && < 5.0,
-                       filepath,
-                       bytestring,
-                       text,
-                       safe,
-                       hxt,
-                       utf8-string,
-                       case-insensitive,
-                       aeson,
-                       binary,
-                       containers,
-                       directory
-  if flag(system-pcre)
-    build-depends:     regex-pcre
-  else
-    build-depends:     regex-pcre-builtin
-  hs-source-dirs:      bin, src
-  if impl(ghc < 7.10)
-     hs-source-dirs:   prelude
-     other-modules:    Prelude
-  main-is:             extract.hs
-  default-language:    Haskell2010
-  other-extensions:    CPP
-  ghc-options:         -Wall
-  other-modules:       Skylighting.Types
-                       Skylighting.Regex
-                       Skylighting.Parser
-  if flag(bootstrap)
-    buildable:         True
-  else
-    buildable:         False
-
-executable skylighting
-  build-depends:       base >= 4.7 && < 5.0,
-                       filepath,
-                       text,
-                       pretty-show,
-                       containers,
-                       directory,
-                       bytestring,
-                       blaze-html >= 0.5,
-                       skylighting
-  hs-source-dirs:      bin
-  if impl(ghc < 7.10)
-     hs-source-dirs:   prelude
-     other-modules:    Prelude
-  main-is:             main.hs
-  default-language:    Haskell2010
-  other-extensions:    CPP
-  ghc-options:         -Wall
-  if flag(bootstrap)
-    buildable:         False
-  if flag(executable)
-    buildable:         True
-  else
-    buildable:         False
-
-test-suite test-skylighting
-  type:           exitcode-stdio-1.0
-  main-is:        test-skylighting.hs
-  hs-source-dirs: test
-  if impl(ghc < 7.10)
-     hs-source-dirs:   prelude
-     other-modules:    Prelude
-  build-depends:  base >= 4.7 && < 5.0,
-                  HUnit,
-                  tasty,
-                  tasty-golden,
-                  tasty-hunit,
-                  containers,
-                  random,
-                  Diff,
-                  text,
-                  pretty-show,
-                  aeson,
-                  bytestring,
-                  directory,
-                  filepath,
-                  skylighting
-  default-language: Haskell2010
-  ghc-options:    -Wall
-  if flag(bootstrap)
-    buildable:         False
-
-benchmark benchmark-skylighting
-  Type:            exitcode-stdio-1.0
-  Main-Is:         benchmark.hs
-  Hs-Source-Dirs:  benchmark
-  if impl(ghc < 7.10)
-     Hs-Source-Dirs: prelude
-     Other-Modules:  Prelude
-  Build-Depends:   skylighting,
-                   base >= 4.2 && < 5,
-                   filepath,
-                   text,
-                   containers,
-                   directory,
-                   criterion >= 1.0 && < 1.3
-  Ghc-Options:   -rtsopts -Wall -fno-warn-unused-do-bind
-  Default-Language: Haskell2010
-
